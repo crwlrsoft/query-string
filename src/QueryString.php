@@ -41,17 +41,17 @@ class QueryString
         }
 
         if (is_array($query)) {
-            $this->array = $this->encodeArray($query);
+            $this->array = $query;
         }
     }
 
-    public function string(): string
+    public function string(bool $unencodedBrackets = false): string
     {
         if ($this->string === null) {
             $this->string = http_build_query($this->array ?? [], '', $this->separator, $this->spaceCharacterEncoding);
         }
 
-        return $this->string;
+        return !$unencodedBrackets ? $this->string : str_replace(['%5B', '%5D'], ['[', ']'], $this->string);
     }
 
     /**
@@ -104,21 +104,6 @@ class QueryString
     }
 
     /**
-     * @param mixed[] $query
-     * @return mixed[]
-     */
-    private function encodeArray(array $query): array
-    {
-        $encodedQuery = [];
-
-        foreach ($query as $key => $value) {
-            $encodedQuery[$this->encode($key)] = is_array($value) ? $this->encodeArray($value) : $this->encode($value);
-        }
-
-        return $encodedQuery;
-    }
-
-    /**
      * Encode percent character in path, query or fragment
      *
      * If the string (path, query, fragment) contains a percent character that is not part of an already percent
@@ -141,9 +126,7 @@ class QueryString
      */
     private function fixKeysContainingDotsOrSpaces(): array
     {
-        $queryStringWithUnencodedBrackets = str_replace(['%5B', '%5D'], ['[', ']'], $this->string());
-
-        $queryWithDotAndSpaceReplacements = $this->replaceDotsAndSpacesInKeys($queryStringWithUnencodedBrackets);
+        $queryWithDotAndSpaceReplacements = $this->replaceDotsAndSpacesInKeys($this->string(true));
 
         parse_str($queryWithDotAndSpaceReplacements, $array);
 
@@ -152,10 +135,8 @@ class QueryString
 
     private function containsDotOrSpaceInKey(string $queryString): bool
     {
-        $queryStringWithUnencodedBrackets = str_replace(['%5B', '%5D'], ['[', ']'], $queryString);
-
-        return preg_match('/(?:^|&)([^\[=&]*\.)/', $queryStringWithUnencodedBrackets) ||
-            preg_match('/(?:^|&)([^\[=&]* )/', $queryStringWithUnencodedBrackets);
+        return preg_match('/(?:^|&)([^\[=&]*\.)/', $this->string(true)) ||
+            preg_match('/(?:^|&)([^\[=&]* )/', $this->string(true));
     }
 
     private function replaceDotsAndSpacesInKeys(string $queryString): string
