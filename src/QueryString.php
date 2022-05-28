@@ -61,8 +61,6 @@ class QueryString
     public function array(): array
     {
         if ($this->array === null) {
-            parse_str($this->string ?? '', $array);
-
             if ($this->separator !== '&') {
                 throw new Exception(
                     'Converting a query string to array with custom separator isn\'t implemented. ' .
@@ -70,7 +68,13 @@ class QueryString
                 );
             }
 
-            $this->array = $this->fixKeysContainingDots($array);
+            if ($this->containsDotOrSpaceInKey($this->string())) {
+                return $this->fixKeysContainingDotsOrSpaces();
+            }
+
+            parse_str($this->string ?? '', $array);
+
+            return $array;
         }
 
         return $this->array;
@@ -133,37 +137,66 @@ class QueryString
      * When keys within a query string contain dots, PHP's parse_str() method converts them to underscores.
      * This method works around this issue so the requested query array returns the proper keys with dots.
      *
-     * @param string[] $array
      * @return string[]
      */
-    private function fixKeysContainingDots(array $array): array
+    private function fixKeysContainingDotsOrSpaces(): array
     {
-        if (preg_match('/(?:^|&)([^\[=&]*\.)/', $this->string ?? '')) { // Matches keys in the query containing a dot
-            // Regex to find keys in query string.
-            preg_match_all('/(?:^|&)([^=&\[]+)(?:[=&\[]|$)/', $this->string ?? '', $matches);
+        $queryStringWithUnencodedBrackets = str_replace(['%5B', '%5D'], ['[', ']'], $this->string());
 
-            $brokenKeys = $fixedArray = [];
+        $queryWithDotAndSpaceReplacements = $this->replaceDotsAndSpacesInKeys($queryStringWithUnencodedBrackets);
 
-            // Create mapping of broken keys to original proper keys.
-            foreach ($matches[1] as $value) {
-                if (strpos($value, '.') !== false) {
-                    $brokenKeys[$this->replaceDotWithUnderscore($value)] = $value;
-                }
+        parse_str($queryWithDotAndSpaceReplacements, $array);
+
+        return $this->revertDotAndSpaceReplacementsInKeys($array);
+    }
+
+    private function containsDotOrSpaceInKey(string $queryString): bool
+    {
+        $queryStringWithUnencodedBrackets = str_replace(['%5B', '%5D'], ['[', ']'], $queryString);
+
+        return preg_match('/(?:^|&)([^\[=&]*\.)/', $queryStringWithUnencodedBrackets) ||
+            preg_match('/(?:^|&)([^\[=&]* )/', $queryStringWithUnencodedBrackets);
+    }
+
+    private function replaceDotsAndSpacesInKeys(string $queryString): string
+    {
+        return preg_replace_callback(
+            '/(?:^|&)([^=&\[]+)(?:[=&\[]|$)/',
+            function ($match) {
+                return str_replace(
+                    ['.', ' ', $this->spaceCharacter()],
+                    ['-*-crwlr-dot-replacement-*-', '-*-crwlr-space-replacement-*-', '-*-crwlr-space-replacement-*-'],
+                    $match[0]
+                );
+            },
+            $queryString
+        ) ?? $queryString;
+    }
+
+    /**
+     * @param mixed[] $queryStringArray
+     * @return mixed[]
+     */
+    private function revertDotAndSpaceReplacementsInKeys(array $queryStringArray): array
+    {
+        foreach ($queryStringArray as $key => $value) {
+            if (
+                strpos($key, '-*-crwlr-dot-replacement-*-') !== false ||
+                strpos($key, '-*-crwlr-space-replacement-*-') !== false
+            ) {
+                $fixedKey = str_replace(
+                    ['-*-crwlr-dot-replacement-*-', '-*-crwlr-space-replacement-*-'],
+                    ['.', ' '],
+                    $key
+                );
+
+                $queryStringArray[$fixedKey] = $value;
+
+                unset($queryStringArray[$key]);
             }
-
-            // Recreate the array with the proper keys.
-            foreach ($array as $key => $value) {
-                if (isset($brokenKeys[$key])) {
-                    $fixedArray[$brokenKeys[$key]] = $value;
-                } else {
-                    $fixedArray[$key] = $value;
-                }
-            }
-
-            return $fixedArray;
         }
 
-        return $array;
+        return $queryStringArray;
     }
 
     private function spaceCharacter(): string
@@ -173,10 +206,5 @@ class QueryString
         }
 
         return '%20';
-    }
-
-    private function replaceDotWithUnderscore(string $value): string
-    {
-        return str_replace('.', '_', $value);
     }
 }
