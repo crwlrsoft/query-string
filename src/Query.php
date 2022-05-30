@@ -5,7 +5,7 @@ namespace Crwlr\QueryString;
 use Exception;
 use InvalidArgumentException;
 
-class QueryString
+final class Query
 {
     /**
      * @var null|string
@@ -43,6 +43,20 @@ class QueryString
         if (is_array($query)) {
             $this->array = $query;
         }
+    }
+
+    public static function fromString(string $queryString): self
+    {
+        return new Query($queryString);
+    }
+
+    /**
+     * @param mixed[] $queryArray
+     * @return static
+     */
+    public static function fromArray(array $queryArray): self
+    {
+        return new Query($queryArray);
     }
 
     public function string(bool $unencodedBrackets = false): string
@@ -122,7 +136,7 @@ class QueryString
      * When keys within a query string contain dots, PHP's parse_str() method converts them to underscores.
      * This method works around this issue so the requested query array returns the proper keys with dots.
      *
-     * @return string[]
+     * @return mixed[]
      */
     private function fixKeysContainingDotsOrSpaces(): array
     {
