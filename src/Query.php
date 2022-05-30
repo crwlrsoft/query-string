@@ -3,10 +3,18 @@
 namespace Crwlr\QueryString;
 
 use Exception;
-use InvalidArgumentException;
 
 final class Query
 {
+    /**
+     * Dots and spaces in query strings are temporarily converted to these placeholders when converting a query string
+     * to array. That's necessary because parse_str() automatically converts them to underscores.
+     *
+     * @see https://github.com/php/php-src/issues/8639
+     */
+    private const TEMP_DOT_REPLACEMENT = '<crwlr-dot-replacement>';
+    private const TEMP_SPACE_REPLACEMENT = '<crwlr-space-replacement>';
+
     /**
      * @var null|string
      */
@@ -30,12 +38,8 @@ final class Query
     /**
      * @param string|mixed[] $query
      */
-    public function __construct($query)
+    public function __construct(string|array $query)
     {
-        if (!is_string($query) && !is_array($query)) {
-            throw new InvalidArgumentException('Query string argument must be of type string or array.');
-        }
-
         if (is_string($query)) {
             $this->string = $this->encode($query);
         }
@@ -82,7 +86,7 @@ final class Query
                 );
             }
 
-            if ($this->containsDotOrSpaceInKey($this->string())) {
+            if ($this->containsDotOrSpaceInKey()) {
                 return $this->fixKeysContainingDotsOrSpaces();
             }
 
@@ -147,7 +151,7 @@ final class Query
         return $this->revertDotAndSpaceReplacementsInKeys($array);
     }
 
-    private function containsDotOrSpaceInKey(string $queryString): bool
+    private function containsDotOrSpaceInKey(): bool
     {
         return preg_match('/(?:^|&)([^\[=&]*\.)/', $this->string(true)) ||
             preg_match('/(?:^|&)([^\[=&]* )/', $this->string(true));
@@ -160,7 +164,7 @@ final class Query
             function ($match) {
                 return str_replace(
                     ['.', ' ', $this->spaceCharacter()],
-                    ['-*-crwlr-dot-replacement-*-', '-*-crwlr-space-replacement-*-', '-*-crwlr-space-replacement-*-'],
+                    [self::TEMP_DOT_REPLACEMENT, self::TEMP_SPACE_REPLACEMENT, self::TEMP_SPACE_REPLACEMENT],
                     $match[0]
                 );
             },
@@ -175,15 +179,8 @@ final class Query
     private function revertDotAndSpaceReplacementsInKeys(array $queryStringArray): array
     {
         foreach ($queryStringArray as $key => $value) {
-            if (
-                strpos($key, '-*-crwlr-dot-replacement-*-') !== false ||
-                strpos($key, '-*-crwlr-space-replacement-*-') !== false
-            ) {
-                $fixedKey = str_replace(
-                    ['-*-crwlr-dot-replacement-*-', '-*-crwlr-space-replacement-*-'],
-                    ['.', ' '],
-                    $key
-                );
+            if (str_contains($key, self::TEMP_DOT_REPLACEMENT) || str_contains($key, self::TEMP_SPACE_REPLACEMENT)) {
+                $fixedKey = str_replace([self::TEMP_DOT_REPLACEMENT, self::TEMP_SPACE_REPLACEMENT], ['.', ' '], $key);
 
                 $queryStringArray[$fixedKey] = $value;
 
