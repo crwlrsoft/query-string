@@ -10,22 +10,22 @@ final class Query
     /**
      * @var null|string
      */
-    private $string = null;
+    private ?string $string = null;
 
     /**
      * @var null|mixed[]
      */
-    private $array = null;
+    private ?array $array = null;
 
     /**
      * @var string
      */
-    private $separator = '&';
+    private string $separator = '&';
 
     /**
      * @var int
      */
-    private $spaceCharacterEncoding = PHP_QUERY_RFC1738;
+    private int $spaceCharacterEncoding = PHP_QUERY_RFC1738;
 
     /**
      * @param string|mixed[] $query
