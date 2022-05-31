@@ -2,22 +2,32 @@
 
 namespace Crwlr\QueryString;
 
+use ArrayAccess;
 use Exception;
+use InvalidArgumentException;
+use Iterator;
 
-final class Query
+/**
+ * @implements ArrayAccess<int|string, mixed>
+ * @implements Iterator<int|string, mixed>
+ */
+
+final class Query implements ArrayAccess, Iterator
 {
     /**
      * Dots and spaces in query strings are temporarily converted to these placeholders when converting a query string
-     * to array. That's necessary because parse_str() automatically converts them to underscores.
+     * to array. That's necessary because parse_str() would automatically convert them to underscores.
      *
      * @see https://github.com/php/php-src/issues/8639
      */
     private const TEMP_DOT_REPLACEMENT = '<crwlr-dot-replacement>';
+
     private const TEMP_SPACE_REPLACEMENT = '<crwlr-space-replacement>';
 
-    /**
-     * @var null|string
-     */
+    private ?Query $parent = null;
+
+    private bool $isDirty = false;
+
     private ?string $string = null;
 
     /**
@@ -25,15 +35,14 @@ final class Query
      */
     private ?array $array = null;
 
-    /**
-     * @var string
-     */
     private string $separator = '&';
 
-    /**
-     * @var int
-     */
     private int $spaceCharacterEncoding = PHP_QUERY_RFC1738;
+
+    /**
+     * If true boolean values are converted to integer (0, 1). If false they are converted to string ('true', 'false').
+     */
+    private bool $boolToInt = true;
 
     /**
      * @param string|mixed[] $query
@@ -63,44 +72,322 @@ final class Query
         return new Query($queryArray);
     }
 
-    public function string(bool $unencodedBrackets = false): string
+    /**
+     * @throws Exception
+     */
+    public function toString(): string
     {
-        if ($this->string === null) {
-            $this->string = http_build_query($this->array ?? [], '', $this->separator, $this->spaceCharacterEncoding);
+        if ($this->string === null || $this->isDirty) {
+            $array = $this->cleanArray($this->array ?? []);
+
+            if (!$this->boolToInt) {
+                $array = $this->boolsToString($array);
+            }
+
+            $this->string = http_build_query($array, '', $this->separator, $this->spaceCharacterEncoding);
         }
 
-        return !$unencodedBrackets ? $this->string : str_replace(['%5B', '%5D'], ['[', ']'], $this->string);
+        return $this->string;
+    }
+
+    public function toStringWithUnencodedBrackets(): string
+    {
+        return str_replace(['%5B', '%5D'], ['[', ']'], $this->toString());
+    }
+
+    public function __toString(): string
+    {
+        return $this->toString();
     }
 
     /**
      * @return mixed[]
      * @throws Exception
      */
-    public function array(): array
+    public function toArray(): array
     {
         if ($this->array === null) {
-            if ($this->separator !== '&') {
-                throw new Exception(
-                    'Converting a query string to array with custom separator isn\'t implemented. ' .
-                    'If you\'d need this reach out on github or twitter.'
-                );
-            }
-
-            if ($this->containsDotOrSpaceInKey()) {
-                return $this->fixKeysContainingDotsOrSpaces();
-            }
-
-            parse_str($this->string ?? '', $array);
-
-            return $array;
+            return $this->array();
         }
 
-        return $this->array;
+        return $this->cleanArray($this->array);
     }
 
-    public function __toString(): string
+    /**
+     * @param string $key
+     * @return string|Query|null|mixed
+     * @throws Exception
+     */
+    public function get(string $key): mixed
     {
-        return $this->string();
+        $queryArray = $this->array();
+
+        if (!isset($queryArray[$key])) {
+            return null;
+        }
+
+        if (is_array($queryArray[$key])) {
+            $this->array[$key] = $this->newWithSameSettings($queryArray[$key]);
+
+            return $this->array[$key];
+        }
+
+        return $queryArray[$key];
+    }
+
+    /**
+     * @param string $key
+     * @param string|mixed[] $value
+     * @throws Exception
+     */
+    public function set(string $key, string|array $value): void
+    {
+        if ($this->array === null) {
+            $this->array();
+        }
+
+        $this->array[$key] = is_array($value) ? $this->newWithSameSettings($value) : $value;
+
+        $this->setDirty();
+    }
+
+    /**
+     * @param string|mixed[] $value
+     * @throws Exception
+     */
+    public function appendTo(string $key, string|array $value): void
+    {
+        $currentValue = $this->get($key);
+
+        $currentValueArray = $currentValue instanceof Query ? $currentValue->toArray() : [$currentValue];
+
+        $newQueryArray = $this->appendToArray($currentValueArray, $value);
+
+        $this->array[$key] = $this->newWithSameSettings($newQueryArray);
+
+        $this->setDirty();
+    }
+
+    /**
+     * @throws Exception
+     */
+    public function first(string $key): mixed
+    {
+        return $this->firstOrLast($key);
+    }
+
+    /**
+     * @throws Exception
+     */
+    public function last(string $key): mixed
+    {
+        return $this->firstOrLast($key, false);
+    }
+
+    /**
+     * @throws Exception
+     */
+    public function remove(string $key): void
+    {
+        if ($this->array === null) {
+            $this->array();
+        }
+
+        if (isset($this->array[$key])) {
+            unset($this->array[$key]);
+        }
+
+        $this->setDirty();
+    }
+
+    public function removeValueFrom(string $fromKey, mixed $removeValue): void
+    {
+        $fromKeyValue = $this->get($fromKey);
+
+        if ($fromKeyValue instanceof Query) {
+            $isAssociativeArray = $this->isAssociativeArray($fromKeyValue->array ?? []);
+
+            foreach ($fromKeyValue as $key => $value) {
+                if ($value === $removeValue) {
+                    unset($fromKeyValue->array[$key]);
+
+                    $fromKeyValue->setDirty();
+                }
+            }
+
+            if (!$isAssociativeArray && is_array($fromKeyValue->array)) {
+                $fromKeyValue->array = array_values($fromKeyValue->array);
+            }
+        }
+    }
+
+    public function boolToInt(): void
+    {
+        if ($this->boolToInt) {
+            return;
+        }
+
+        $this->boolToInt = true;
+
+        foreach ($this->array() as $value) {
+            if ($value instanceof Query) {
+                $value->boolToInt();
+            }
+        }
+
+        $this->setDirty();
+    }
+
+    public function boolToString(): void
+    {
+        if (!$this->boolToInt) {
+            return;
+        }
+
+        $this->boolToInt = false;
+
+        foreach ($this->array() as $value) {
+            if ($value instanceof Query) {
+                $value->boolToString();
+            }
+        }
+
+        $this->setDirty();
+    }
+
+    /**
+     * @param int|string $offset
+     * @throws Exception
+     */
+    public function offsetExists(mixed $offset): bool
+    {
+        if (!is_int($offset) && !is_string($offset)) {
+            throw new InvalidArgumentException('Argument offset must be of type int or string.');
+        }
+
+        return array_key_exists($offset, $this->array());
+    }
+
+    /**
+     * @param int|string $offset
+     * @return mixed
+     * @throws Exception
+     */
+    public function offsetGet(mixed $offset): mixed
+    {
+        if (!is_int($offset) && !is_string($offset)) {
+            throw new InvalidArgumentException('Argument offset must be of type int or string.');
+        }
+
+        return $this->array()[$offset];
+    }
+
+    /**
+     * @param int|string $offset
+     * @throws Exception
+     */
+    public function offsetSet(mixed $offset, mixed $value): void
+    {
+        if (!is_int($offset) && !is_string($offset)) {
+            throw new InvalidArgumentException('Argument offset must be of type int or string.');
+        }
+
+        $queryArray = $this->array();
+
+        $queryArray[$offset] = $value;
+
+        $this->array = $queryArray;
+    }
+
+    /**
+     * @param mixed $offset
+     * @return void
+     * @throws Exception
+     */
+    public function offsetUnset(mixed $offset): void
+    {
+        if (!is_int($offset) && !is_string($offset)) {
+            throw new InvalidArgumentException('Argument offset must be of type int or string.');
+        }
+
+        $queryArray = $this->array();
+
+        if (array_key_exists($offset, $queryArray)) {
+            unset($queryArray[$offset]);
+        }
+    }
+
+    /**
+     * @return false|mixed
+     * @throws Exception
+     */
+    public function current(): mixed
+    {
+        if (!$this->array) {
+            $this->array();
+        }
+
+        return current($this->array ?? []);
+    }
+
+    /**
+     * @throws Exception
+     */
+    public function next(): void
+    {
+        if (!$this->array) {
+            $this->array();
+        }
+
+        if (is_array($this->array)) {
+            next($this->array);
+        }
+    }
+
+    /**
+     * @throws Exception
+     */
+    public function key(): int|string|null
+    {
+        if (!$this->array) {
+            $this->array();
+        }
+
+        if (is_array($this->array)) {
+            return key($this->array);
+        }
+
+        return null;
+    }
+
+    /**
+     * @throws Exception
+     */
+    public function valid(): bool
+    {
+        if (!$this->array) {
+            $this->array();
+        }
+
+        if ($this->key() === null) {
+            return false;
+        }
+
+        return isset($this->array[$this->key()]);
+    }
+
+    /**
+     * @throws Exception
+     */
+    public function rewind(): void
+    {
+        if (!$this->array) {
+            $this->array();
+
+            return;
+        }
+
+        reset($this->array);
     }
 
     /**
@@ -144,7 +431,7 @@ final class Query
      */
     private function fixKeysContainingDotsOrSpaces(): array
     {
-        $queryWithDotAndSpaceReplacements = $this->replaceDotsAndSpacesInKeys($this->string(true));
+        $queryWithDotAndSpaceReplacements = $this->replaceDotsAndSpacesInKeys($this->toStringWithUnencodedBrackets());
 
         parse_str($queryWithDotAndSpaceReplacements, $array);
 
@@ -153,8 +440,8 @@ final class Query
 
     private function containsDotOrSpaceInKey(): bool
     {
-        return preg_match('/(?:^|&)([^\[=&]*\.)/', $this->string(true)) ||
-            preg_match('/(?:^|&)([^\[=&]* )/', $this->string(true));
+        return preg_match('/(?:^|&)([^\[=&]*\.)/', $this->toStringWithUnencodedBrackets()) ||
+            preg_match('/(?:^|&)([^\[=&]* )/', $this->toStringWithUnencodedBrackets());
     }
 
     private function replaceDotsAndSpacesInKeys(string $queryString): string
@@ -189,6 +476,174 @@ final class Query
         }
 
         return $queryStringArray;
+    }
+
+    /**
+     * @return mixed[]
+     * @throws Exception
+     */
+    private function array(): array
+    {
+        if ($this->array === null) {
+            if ($this->separator !== '&') {
+                throw new Exception(
+                    'Converting a query string to array with custom separator isn\'t implemented. ' .
+                    'If you\'d need this reach out on github or twitter.'
+                );
+            }
+
+            if ($this->containsDotOrSpaceInKey()) {
+                return $this->fixKeysContainingDotsOrSpaces();
+            }
+
+            parse_str($this->string ?? '', $array);
+
+            $this->array = $array;
+
+            return $array;
+        }
+
+        return $this->array;
+    }
+
+    /**
+     * @param mixed[] $array
+     * @return mixed[]
+     * @throws Exception
+     */
+    private function cleanArray(array $array): array
+    {
+        foreach ($array as $key => $value) {
+            if ($value instanceof Query) {
+                $array[$key] = $value->toArray();
+            }
+
+            if (is_array($array[$key])) {
+                $array[$key] = $this->cleanArray($array[$key]);
+            }
+        }
+
+        return $array;
+    }
+
+    private function firstOrLast(string $key, bool $first = true): mixed
+    {
+        if (!isset($this->array[$key])) {
+            return null;
+        }
+
+        if ($this->array[$key] instanceof Query || is_array($this->array[$key])) {
+            $value = $first ? reset($this->array[$key]) : end($this->array[$key]);
+
+            if ($value instanceof Query || is_array($value)) {
+                $valueKey = key($this->array[$key]);
+
+                if ($valueKey !== null) {
+                    $this->array[$key][$valueKey] = Query::fromArray((array) $value);
+
+                    return $this->array[$key][$valueKey];
+                }
+            }
+
+            return $value;
+        }
+
+        return $this->array[$key];
+    }
+
+    /**
+     * @param string|mixed[] $query
+     * @return $this
+     */
+    private function newWithSameSettings(string|array $query): self
+    {
+        $instance = new self($query);
+
+        $instance->boolToInt = $this->boolToInt;
+
+        $instance->parent = $this;
+
+        return $instance;
+    }
+
+    private function setDirty(): void
+    {
+        $this->isDirty = true;
+
+        $this->parent?->setDirty();
+    }
+
+    /**
+     * @param mixed[] $array
+     * @param string|mixed[] $value
+     * @return mixed[]
+     */
+    private function appendToArray(array $array, string|array $value): array
+    {
+        if (is_array($value)) {
+            if ($this->isAssociativeArray($value)) {
+                $array = $this->appendAssociativeArrayToArray($array, $value);
+            } else {
+                array_push($array, ...$value);
+            }
+        } else {
+            $array[] = $value;
+        }
+
+        return $array;
+    }
+
+    /**
+     * @param mixed[] $array
+     */
+    private function isAssociativeArray(array $array): bool
+    {
+        foreach (array_keys($array) as $key => $value) {
+            if ($key !== $value) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param mixed[] $appendTo
+     * @param mixed[] $associativeArray
+     * @return mixed[]
+     */
+    private function appendAssociativeArrayToArray(array $appendTo, array $associativeArray): array
+    {
+        foreach ($associativeArray as $key => $val) {
+            if (isset($appendTo[$key])) {
+                if (!is_array($appendTo[$key])) {
+                    $appendTo[$key] = [$appendTo[$key]];
+                }
+
+                $appendTo[$key][] = $val;
+            } else {
+                $appendTo[$key] = $val;
+            }
+        }
+
+        return $appendTo;
+    }
+
+    /**
+     * @param Query<mixed[]>|mixed[] $array
+     * @return Query<mixed[]>|mixed[]
+     */
+    private function boolsToString(Query|array $array): Query|array
+    {
+        foreach ($array as $key => $value) {
+            if (is_bool($value)) {
+                $array[$key] = $value ? 'true' : 'false';
+            } elseif ($value instanceof Query || is_array($value)) {
+                $array[$key] = $this->boolsToString($value);
+            }
+        }
+
+        return $array;
     }
 
     private function spaceCharacter(): string
