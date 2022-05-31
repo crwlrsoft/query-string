@@ -272,6 +272,26 @@ final class Query implements ArrayAccess, Iterator
     /**
      * @throws Exception
      */
+    public function separator(string $separator): void
+    {
+        if ($this->separator === $separator) {
+            return;
+        }
+
+        $this->separator = $separator;
+
+        foreach ($this->array() as $value) {
+            if ($value instanceof Query) {
+                $value->separator($separator);
+            }
+        }
+
+        $this->setDirty();
+    }
+
+    /**
+     * @throws Exception
+     */
     public function filter(Closure $filterCallback): self
     {
         $this->array = array_filter($this->toArray(), $filterCallback, ARRAY_FILTER_USE_BOTH);
@@ -529,8 +549,9 @@ final class Query implements ArrayAccess, Iterator
         if ($this->array === null) {
             if ($this->separator !== '&') {
                 throw new Exception(
-                    'Converting a query string to array with custom separator isn\'t implemented. ' .
-                    'If you\'d need this reach out on github or twitter.'
+                    'Converting a query string to array with custom separator isn\'t implemented, because PHP\'s ' .
+                    'parse_str() function doesn\'t have that functionality. If you\'d need this reach out to crwlr ' .
+                    'on github or twitter.'
                 );
             }
 
