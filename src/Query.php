@@ -3,6 +3,7 @@
 namespace Crwlr\QueryString;
 
 use ArrayAccess;
+use Closure;
 use Exception;
 use InvalidArgumentException;
 use Iterator;
@@ -90,11 +91,17 @@ final class Query implements ArrayAccess, Iterator
         return $this->string;
     }
 
+    /**
+     * @throws Exception
+     */
     public function toStringWithUnencodedBrackets(): string
     {
         return str_replace(['%5B', '%5D'], ['[', ']'], $this->toString());
     }
 
+    /**
+     * @throws Exception
+     */
     public function __toString(): string
     {
         return $this->toString();
@@ -193,11 +200,14 @@ final class Query implements ArrayAccess, Iterator
 
         if (isset($this->array[$key])) {
             unset($this->array[$key]);
-        }
 
-        $this->setDirty();
+            $this->setDirty();
+        }
     }
 
+    /**
+     * @throws Exception
+     */
     public function removeValueFrom(string $fromKey, mixed $removeValue): void
     {
         $fromKeyValue = $this->get($fromKey);
@@ -219,6 +229,9 @@ final class Query implements ArrayAccess, Iterator
         }
     }
 
+    /**
+     * @throws Exception
+     */
     public function boolToInt(): void
     {
         if ($this->boolToInt) {
@@ -236,6 +249,9 @@ final class Query implements ArrayAccess, Iterator
         $this->setDirty();
     }
 
+    /**
+     * @throws Exception
+     */
     public function boolToString(): void
     {
         if (!$this->boolToInt) {
@@ -251,6 +267,30 @@ final class Query implements ArrayAccess, Iterator
         }
 
         $this->setDirty();
+    }
+
+    /**
+     * @throws Exception
+     */
+    public function filter(Closure $filterCallback): self
+    {
+        $this->array = array_filter($this->toArray(), $filterCallback, ARRAY_FILTER_USE_BOTH);
+
+        $this->setDirty();
+
+        return $this;
+    }
+
+    /**
+     * @throws Exception
+     */
+    public function map(Closure $mappingCallback): self
+    {
+        $this->array = array_map($mappingCallback, $this->toArray());
+
+        $this->setDirty();
+
+        return $this;
     }
 
     /**
@@ -416,6 +456,7 @@ final class Query implements ArrayAccess, Iterator
      * This method works around this issue so the requested query array returns the proper keys with dots.
      *
      * @return mixed[]
+     * @throws Exception
      */
     private function fixKeysContainingDotsOrSpaces(): array
     {
@@ -426,6 +467,9 @@ final class Query implements ArrayAccess, Iterator
         return $this->revertDotAndSpaceReplacementsInKeys($array);
     }
 
+    /**
+     * @throws Exception
+     */
     private function containsDotOrSpaceInKey(): bool
     {
         return preg_match('/(?:^|&)([^\[=&]*\.)/', $this->toStringWithUnencodedBrackets()) ||
@@ -466,6 +510,9 @@ final class Query implements ArrayAccess, Iterator
         return $queryStringArray;
     }
 
+    /**
+     * @throws Exception
+     */
     private function initArray(): void
     {
         if ($this->array === null) {

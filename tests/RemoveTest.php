@@ -10,7 +10,7 @@ it('removes a key from a query', function () {
     expect($query->toStringWithUnencodedBrackets())->toBe('foo=eins&baz=drei');
 });
 
-test('Removing a key from a child also removes it from the parent', function () {
+test('removing a key from a child also removes it from the parent', function () {
     $query = Query::fromString('foo[bar][a]=baz&foo[bar][b]=quz');
 
     $query->get('foo')->get('bar')->remove('b');

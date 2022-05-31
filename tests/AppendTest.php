@@ -44,7 +44,7 @@ it('appends a scalar value to an array with a certain key', function () {
     expect($query->toStringWithUnencodedBrackets())->toBe('array[foo]=bar&array[baz]=quz');
 });
 
-test('When passing an associative array and a key already exists, it changes it to an array in the query', function () {
+test('when passing an associative array and a key already exists, it changes it to an array in the query', function () {
     $query = Query::fromArray(['a' => 'a', 'b' => ['c' => 'c']]);
 
     $query->appendTo('b', ['c' => 'd']);

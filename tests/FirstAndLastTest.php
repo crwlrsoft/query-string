@@ -18,7 +18,7 @@ it('returns the last value of an associative array', function () {
     expect(Query::fromArray(['foo' => ['z' => 'a', 'y' => 'b', 'x' => 'c']])->last('foo'))->toBe('c');
 });
 
-test('When first element is an array it returns an instance of the Query class', function () {
+test('when first element is an array it returns an instance of the Query class', function () {
     $query = Query::fromArray(['foo' => [['a', 'b'], 'c', 'd']]);
 
     expect($query->first('foo'))->toBeInstanceOf(Query::class);
@@ -26,7 +26,7 @@ test('When first element is an array it returns an instance of the Query class',
     expect($query->first('foo')->toArray())->toBe(['a', 'b']);
 });
 
-test('When last element is an array it returns an instance of the Query class', function () {
+test('when last element is an array it returns an instance of the Query class', function () {
     $query = Query::fromArray(['foo' => ['a', 'b', ['c', 'd']]]);
 
     expect($query->last('foo'))->toBeInstanceOf(Query::class);

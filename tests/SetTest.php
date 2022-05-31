@@ -34,7 +34,7 @@ it('sets an array value', function () {
     expect($query->toStringWithUnencodedBrackets())->toBe('a=a&b[0]=c&b[1]=d');
 });
 
-test('When setting an array value, it inherits the parent\'s bool conversion setting', function () {
+test('when setting an array value, it inherits the parent\'s bool conversion setting', function () {
     $query = Query::fromArray(['a' => true]);
 
     $query->boolToString();
