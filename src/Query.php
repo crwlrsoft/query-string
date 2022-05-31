@@ -106,11 +106,7 @@ final class Query implements ArrayAccess, Iterator
      */
     public function toArray(): array
     {
-        if ($this->array === null) {
-            return $this->array();
-        }
-
-        return $this->cleanArray($this->array);
+        return $this->cleanArray($this->array());
     }
 
     /**
@@ -142,9 +138,7 @@ final class Query implements ArrayAccess, Iterator
      */
     public function set(string $key, string|array $value): void
     {
-        if ($this->array === null) {
-            $this->array();
-        }
+        $this->initArray();
 
         $this->array[$key] = is_array($value) ? $this->newWithSameSettings($value) : $value;
 
@@ -169,18 +163,24 @@ final class Query implements ArrayAccess, Iterator
     }
 
     /**
+     * @return mixed|string|bool|int|Query
      * @throws Exception
      */
-    public function first(string $key): mixed
+    public function first(?string $key = null): mixed
     {
+        $this->initArray();
+
         return $this->firstOrLast($key);
     }
 
     /**
+     * @return mixed|string|bool|int|Query
      * @throws Exception
      */
-    public function last(string $key): mixed
+    public function last(?string $key = null): mixed
     {
+        $this->initArray();
+
         return $this->firstOrLast($key, false);
     }
 
@@ -189,9 +189,7 @@ final class Query implements ArrayAccess, Iterator
      */
     public function remove(string $key): void
     {
-        if ($this->array === null) {
-            $this->array();
-        }
+        $this->initArray();
 
         if (isset($this->array[$key])) {
             unset($this->array[$key]);
@@ -323,9 +321,7 @@ final class Query implements ArrayAccess, Iterator
      */
     public function current(): mixed
     {
-        if (!$this->array) {
-            $this->array();
-        }
+        $this->initArray();
 
         return current($this->array ?? []);
     }
@@ -335,9 +331,7 @@ final class Query implements ArrayAccess, Iterator
      */
     public function next(): void
     {
-        if (!$this->array) {
-            $this->array();
-        }
+        $this->initArray();
 
         if (is_array($this->array)) {
             next($this->array);
@@ -349,9 +343,7 @@ final class Query implements ArrayAccess, Iterator
      */
     public function key(): int|string|null
     {
-        if (!$this->array) {
-            $this->array();
-        }
+        $this->initArray();
 
         if (is_array($this->array)) {
             return key($this->array);
@@ -365,9 +357,7 @@ final class Query implements ArrayAccess, Iterator
      */
     public function valid(): bool
     {
-        if (!$this->array) {
-            $this->array();
-        }
+        $this->initArray();
 
         if ($this->key() === null) {
             return false;
@@ -381,13 +371,11 @@ final class Query implements ArrayAccess, Iterator
      */
     public function rewind(): void
     {
-        if (!$this->array) {
+        if ($this->array === null) {
             $this->array();
-
-            return;
+        } else {
+            reset($this->array);
         }
-
-        reset($this->array);
     }
 
     /**
@@ -478,6 +466,13 @@ final class Query implements ArrayAccess, Iterator
         return $queryStringArray;
     }
 
+    private function initArray(): void
+    {
+        if ($this->array === null) {
+            $this->array();
+        }
+    }
+
     /**
      * @return mixed[]
      * @throws Exception
@@ -526,26 +521,28 @@ final class Query implements ArrayAccess, Iterator
         return $array;
     }
 
-    private function firstOrLast(string $key, bool $first = true): mixed
+    /**
+     * @return mixed|string|bool|int|Query
+     * @throws Exception
+     */
+    private function firstOrLast(?string $key = null, bool $first = true): mixed
     {
-        if (!isset($this->array[$key])) {
+        if (!is_array($this->array) || ($key && !isset($this->array[$key]))) {
             return null;
         }
 
+        if ($key === null) {
+            $value = $first ? reset($this->array) : end($this->array);
+
+            return is_array($value) ? $this->newWithSameSettings($value) : $value;
+        }
+
         if ($this->array[$key] instanceof Query || is_array($this->array[$key])) {
-            $value = $first ? reset($this->array[$key]) : end($this->array[$key]);
-
-            if ($value instanceof Query || is_array($value)) {
-                $valueKey = key($this->array[$key]);
-
-                if ($valueKey !== null) {
-                    $this->array[$key][$valueKey] = Query::fromArray((array) $value);
-
-                    return $this->array[$key][$valueKey];
-                }
+            if (is_array($this->array[$key])) {
+                $this->array[$key] = $this->newWithSameSettings($this->array[$key]);
             }
 
-            return $value;
+            return $first ? $this->array[$key]->first() : $this->array[$key]->last();
         }
 
         return $this->array[$key];
