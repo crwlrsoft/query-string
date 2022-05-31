@@ -78,7 +78,7 @@ final class Query implements ArrayAccess, Iterator
     public function toString(): string
     {
         if ($this->string === null || $this->isDirty) {
-            $array = $this->cleanArray($this->array ?? []);
+            $array = $this->toArray();
 
             if (!$this->boolToInt) {
                 $array = $this->boolsToString($array);
@@ -511,10 +511,6 @@ final class Query implements ArrayAccess, Iterator
         foreach ($array as $key => $value) {
             if ($value instanceof Query) {
                 $array[$key] = $value->toArray();
-            }
-
-            if (is_array($array[$key])) {
-                $array[$key] = $this->cleanArray($array[$key]);
             }
         }
 
