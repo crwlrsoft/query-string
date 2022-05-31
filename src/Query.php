@@ -292,6 +292,44 @@ final class Query implements ArrayAccess, Iterator
     /**
      * @throws Exception
      */
+    public function spaceCharacterEncoding(int $spaceCharacterEncodingConst): void
+    {
+        if (in_array($spaceCharacterEncodingConst, [PHP_QUERY_RFC1738, PHP_QUERY_RFC3986], true)) {
+            if ($spaceCharacterEncodingConst === $this->spaceCharacterEncoding) {
+                return;
+            }
+
+            $this->spaceCharacterEncoding = $spaceCharacterEncodingConst;
+
+            foreach ($this->array() as $value) {
+                if ($value instanceof Query) {
+                    $value->spaceCharacterEncoding($spaceCharacterEncodingConst);
+                }
+            }
+
+            $this->setDirty();
+        }
+    }
+
+    /**
+     * @throws Exception
+     */
+    public function spaceCharacterPlus(): void
+    {
+        $this->spaceCharacterEncoding(PHP_QUERY_RFC1738);
+    }
+
+    /**
+     * @throws Exception
+     */
+    public function spaceCharacterPercentTwenty(): void
+    {
+        $this->spaceCharacterEncoding(PHP_QUERY_RFC3986);
+    }
+
+    /**
+     * @throws Exception
+     */
     public function filter(Closure $filterCallback): self
     {
         $this->array = array_filter($this->toArray(), $filterCallback, ARRAY_FILTER_USE_BOTH);
@@ -620,9 +658,13 @@ final class Query implements ArrayAccess, Iterator
     {
         $instance = new self($query);
 
+        $instance->parent = $this;
+
         $instance->boolToInt = $this->boolToInt;
 
-        $instance->parent = $this;
+        $instance->spaceCharacterEncoding = $this->spaceCharacterEncoding;
+
+        $instance->separator = $this->separator;
 
         return $instance;
     }
