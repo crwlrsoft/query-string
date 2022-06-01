@@ -9,7 +9,7 @@ manipulate query strings used in HTTP GET (part of the URL) or POST
 ## Documentation
 
 You can find the documentation at
-[crwlr.software](https://www.crwlr.software/packages/query-string/v0.1/getting-started).
+[crwlr.software](https://www.crwlr.software/packages/query-string/v1.0/getting-started).
 
 ## Contributing
 
