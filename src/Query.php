@@ -117,11 +117,11 @@ final class Query implements ArrayAccess, Iterator
     }
 
     /**
-     * @param string $key
+     * @param string|int $key
      * @return string|Query|null|mixed
      * @throws Exception
      */
-    public function get(string $key): mixed
+    public function get(string|int $key): mixed
     {
         $queryArray = $this->array();
 
@@ -150,6 +150,34 @@ final class Query implements ArrayAccess, Iterator
         $this->array[$key] = is_array($value) ? $this->newWithSameSettings($value) : $value;
 
         $this->setDirty();
+    }
+
+    /**
+     * @throws Exception
+     */
+    public function has(int|string $key): bool
+    {
+        $this->initArray();
+
+        return isset($this->array[$key]);
+    }
+
+    /**
+     * @throws Exception
+     */
+    public function isArray(int|string $key): bool
+    {
+        $this->initArray();
+
+        return isset($this->array[$key]) && (is_array($this->array[$key]) || $this->array[$key] instanceof Query);
+    }
+
+    /**
+     * @throws Exception
+     */
+    public function isScalar(int|string $key): bool
+    {
+        return $this->has($key) && !$this->isArray($key);
     }
 
     /**

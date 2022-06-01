@@ -6,6 +6,10 @@ it('gets a value by key', function () {
     expect(Query::fromArray(['foo' => 'bar'])->get('foo'))->toBe('bar');
 });
 
+it('gets a value by numeric index', function () {
+    expect(Query::fromArray(['one', 'two'])->get(1))->toBe('two');
+});
+
 it('returns null when key doesn\'t exist', function () {
     expect(Query::fromString('foo=bar')->get('baz'))->toBeNull();
 });
