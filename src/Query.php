@@ -141,15 +141,18 @@ final class Query implements ArrayAccess, Iterator
     /**
      * @param string $key
      * @param string|mixed[] $value
+     * @return self
      * @throws Exception
      */
-    public function set(string $key, string|array $value): void
+    public function set(string $key, string|array $value): self
     {
         $this->initArray();
 
         $this->array[$key] = is_array($value) ? $this->newWithSameSettings($value) : $value;
 
         $this->setDirty();
+
+        return $this;
     }
 
     /**
@@ -184,7 +187,7 @@ final class Query implements ArrayAccess, Iterator
      * @param string|mixed[] $value
      * @throws Exception
      */
-    public function appendTo(string $key, string|array $value): void
+    public function appendTo(string $key, string|array $value): self
     {
         $currentValue = $this->get($key);
 
@@ -195,6 +198,8 @@ final class Query implements ArrayAccess, Iterator
         $this->array[$key] = $this->newWithSameSettings($newQueryArray);
 
         $this->setDirty();
+
+        return $this;
     }
 
     /**
@@ -222,7 +227,7 @@ final class Query implements ArrayAccess, Iterator
     /**
      * @throws Exception
      */
-    public function remove(string $key): void
+    public function remove(string $key): self
     {
         $this->initArray();
 
@@ -231,12 +236,14 @@ final class Query implements ArrayAccess, Iterator
 
             $this->setDirty();
         }
+
+        return $this;
     }
 
     /**
      * @throws Exception
      */
-    public function removeValueFrom(string $fromKey, mixed $removeValue): void
+    public function removeValueFrom(string $fromKey, mixed $removeValue): self
     {
         $fromKeyValue = $this->get($fromKey);
 
@@ -255,15 +262,17 @@ final class Query implements ArrayAccess, Iterator
                 $fromKeyValue->array = array_values($fromKeyValue->array);
             }
         }
+
+        return $this;
     }
 
     /**
      * @throws Exception
      */
-    public function boolToInt(): void
+    public function boolToInt(): self
     {
         if ($this->boolToInt) {
-            return;
+            return $this;
         }
 
         $this->boolToInt = true;
@@ -275,15 +284,17 @@ final class Query implements ArrayAccess, Iterator
         }
 
         $this->setDirty();
+
+        return $this;
     }
 
     /**
      * @throws Exception
      */
-    public function boolToString(): void
+    public function boolToString(): self
     {
         if (!$this->boolToInt) {
-            return;
+            return $this;
         }
 
         $this->boolToInt = false;
@@ -295,15 +306,17 @@ final class Query implements ArrayAccess, Iterator
         }
 
         $this->setDirty();
+
+        return $this;
     }
 
     /**
      * @throws Exception
      */
-    public function separator(string $separator): void
+    public function separator(string $separator): self
     {
         if ($this->separator === $separator) {
-            return;
+            return $this;
         }
 
         $this->separator = $separator;
@@ -315,16 +328,18 @@ final class Query implements ArrayAccess, Iterator
         }
 
         $this->setDirty();
+
+        return $this;
     }
 
     /**
      * @throws Exception
      */
-    public function spaceCharacterEncoding(int $spaceCharacterEncodingConst): void
+    public function spaceCharacterEncoding(int $spaceCharacterEncodingConst): self
     {
         if (in_array($spaceCharacterEncodingConst, [PHP_QUERY_RFC1738, PHP_QUERY_RFC3986], true)) {
             if ($spaceCharacterEncodingConst === $this->spaceCharacterEncoding) {
-                return;
+                return $this;
             }
 
             $this->spaceCharacterEncoding = $spaceCharacterEncodingConst;
@@ -337,22 +352,24 @@ final class Query implements ArrayAccess, Iterator
 
             $this->setDirty();
         }
+
+        return $this;
     }
 
     /**
      * @throws Exception
      */
-    public function spaceCharacterPlus(): void
+    public function spaceCharacterPlus(): self
     {
-        $this->spaceCharacterEncoding(PHP_QUERY_RFC1738);
+        return $this->spaceCharacterEncoding(PHP_QUERY_RFC1738);
     }
 
     /**
      * @throws Exception
      */
-    public function spaceCharacterPercentTwenty(): void
+    public function spaceCharacterPercentTwenty(): self
     {
-        $this->spaceCharacterEncoding(PHP_QUERY_RFC3986);
+        return $this->spaceCharacterEncoding(PHP_QUERY_RFC3986);
     }
 
     /**
