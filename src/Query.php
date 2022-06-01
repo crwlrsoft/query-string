@@ -729,7 +729,11 @@ final class Query implements ArrayAccess, Iterator
 
         $this->parent?->setDirty();
 
-        $this->dirtyHookCallback?->call($this);
+        if ($this->dirtyHookCallback) {
+            $dirtyHookCallback = $this->dirtyHookCallback;
+
+            $dirtyHookCallback();
+        }
     }
 
     /**
