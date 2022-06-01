@@ -25,10 +25,6 @@ final class Query implements ArrayAccess, Iterator
 
     private const TEMP_SPACE_REPLACEMENT = '<crwlr-space-replacement>';
 
-    private ?Query $parent = null;
-
-    private bool $isDirty = false;
-
     private ?string $string = null;
 
     /**
@@ -44,6 +40,12 @@ final class Query implements ArrayAccess, Iterator
      * If true boolean values are converted to integer (0, 1). If false they are converted to string ('true', 'false').
      */
     private bool $boolToInt = true;
+
+    private ?Query $parent = null;
+
+    private bool $isDirty = false;
+
+    private ?Closure $dirtyHookCallback = null;
 
     /**
      * @param string|mixed[] $query
@@ -396,6 +398,13 @@ final class Query implements ArrayAccess, Iterator
         return $this;
     }
 
+    public function setDirtyHook(Closure $callback): self
+    {
+        $this->dirtyHookCallback = $callback;
+
+        return $this;
+    }
+
     /**
      * @param int|string $offset
      * @throws Exception
@@ -719,6 +728,8 @@ final class Query implements ArrayAccess, Iterator
         $this->isDirty = true;
 
         $this->parent?->setDirty();
+
+        $this->dirtyHookCallback?->call($this);
     }
 
     /**
