@@ -609,17 +609,19 @@ final class Query implements ArrayAccess, Iterator
      */
     private function revertDotAndSpaceReplacementsInKeys(array $queryStringArray): array
     {
+        $newQueryStringArray = [];
+
         foreach ($queryStringArray as $key => $value) {
             if (str_contains($key, self::TEMP_DOT_REPLACEMENT) || str_contains($key, self::TEMP_SPACE_REPLACEMENT)) {
                 $fixedKey = str_replace([self::TEMP_DOT_REPLACEMENT, self::TEMP_SPACE_REPLACEMENT], ['.', ' '], $key);
 
-                $queryStringArray[$fixedKey] = $value;
-
-                unset($queryStringArray[$key]);
+                $newQueryStringArray[$fixedKey] = $value;
+            } else {
+                $newQueryStringArray[$key] = $value;
             }
         }
 
-        return $queryStringArray;
+        return $newQueryStringArray;
     }
 
     /**
