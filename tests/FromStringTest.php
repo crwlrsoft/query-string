@@ -56,3 +56,14 @@ it('does not convert dots and spaces in keys to underscores', function () {
         'fo o' => ['b.ar' => ['b.a z' => 'quz']]
     ]);
 });
+
+it('maintains the correct order of key value pairs', function () {
+    $queryString = new Query('foo_bar=v1&foo.bar=v2&foo.bar_extra=v3&foo_bar3=v4');
+
+    expect($queryString->toArray())->toBe([
+        'foo_bar' => 'v1',
+        'foo.bar' => 'v2',
+        'foo.bar_extra' => 'v3',
+        'foo_bar3' => 'v4',
+    ]);
+});
