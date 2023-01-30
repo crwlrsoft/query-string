@@ -49,18 +49,22 @@ final class Query implements ArrayAccess, Iterator
 
     /**
      * @param string|mixed[] $query
+     * @throws Exception
      */
     public function __construct(string|array $query)
     {
         if (is_string($query)) {
-            $this->string = $this->encode($query);
+            $this->string = $this->sanitizeAndEncode($query);
         }
 
         if (is_array($query)) {
-            $this->array = $query;
+            $this->array = $this->sanitizeArray($query);
         }
     }
 
+    /**
+     * @throws Exception
+     */
     public static function fromString(string $queryString): self
     {
         return new Query($queryString);
@@ -69,6 +73,7 @@ final class Query implements ArrayAccess, Iterator
     /**
      * @param mixed[] $queryArray
      * @return static
+     * @throws Exception
      */
     public static function fromArray(array $queryArray): self
     {
@@ -83,11 +88,7 @@ final class Query implements ArrayAccess, Iterator
         if ($this->string === null || $this->isDirty) {
             $array = $this->toArray();
 
-            if (!$this->boolToInt) {
-                $array = $this->boolsToString($array);
-            }
-
-            $this->string = http_build_query($array, '', $this->separator, $this->spaceCharacterEncoding);
+            $this->string = $this->arrayToString($array);
         }
 
         return $this->string;
@@ -96,9 +97,9 @@ final class Query implements ArrayAccess, Iterator
     /**
      * @throws Exception
      */
-    public function toStringWithUnencodedBrackets(): string
+    public function toStringWithUnencodedBrackets(?string $query = null): string
     {
-        return str_replace(['%5B', '%5D'], ['[', ']'], $this->toString());
+        return str_replace(['%5B', '%5D'], ['[', ']'], $query ?? $this->toString());
     }
 
     /**
@@ -531,6 +532,89 @@ final class Query implements ArrayAccess, Iterator
     }
 
     /**
+     * @throws Exception
+     */
+    private function sanitizeAndEncode(string $query): string
+    {
+        $query = $this->sanitize($query);
+
+        return $this->encode($query);
+    }
+
+    /**
+     * @throws Exception
+     */
+    private function sanitize(string $query): string
+    {
+        while (str_starts_with($query, '&')) {
+            $query = substr($query, 1);
+        }
+
+        while (str_ends_with($query, '&')) {
+            $query = substr($query, 0, strlen($query) - 1);
+        }
+
+        $query = preg_replace('/&+/', '&', $query) ?? $query;
+
+        return $this->arrayToString($this->stringToArray($query));
+    }
+
+    /**
+     * @param mixed[] $query
+     * @return mixed[]
+     * @throws Exception
+     */
+    private function sanitizeArray(array $query): array
+    {
+        $originalInputQuery = $query;
+
+        $query = $this->boolValuesToStringInSanitizeArray($query);
+
+        $query = $this->stringToArray($this->arrayToString($query));
+
+        return $this->revertBoolValuesInSanitizeArray($query, $originalInputQuery);
+    }
+
+    /**
+     * @param mixed[] $query
+     * @return mixed[]
+     */
+    private function boolValuesToStringInSanitizeArray(array $query): array
+    {
+        foreach ($query as $key => $value) {
+            if (is_array($value)) {
+                $query[$key] = $this->boolValuesToStringInSanitizeArray($value);
+            }
+
+            if (is_bool($value)) {
+                $query[$key] = $value ? 'true' : 'false';
+            }
+        }
+
+        return $query;
+    }
+
+    /**
+     * @param mixed[] $query
+     * @param mixed[] $originalQuery
+     * @return mixed[]
+     */
+    private function revertBoolValuesInSanitizeArray(array $query, array $originalQuery): array
+    {
+        foreach ($query as $key => $value) {
+            if (is_array($value)) {
+                $query[$key] = $this->revertBoolValuesInSanitizeArray($value, $originalQuery[$key]);
+            }
+
+            if (in_array($value, ['true', 'false'], true) && is_bool($originalQuery[$key])) {
+                $query[$key] = $value === 'true';
+            }
+        }
+
+        return $query;
+    }
+
+    /**
      * Correctly encode a query string
      *
      * @see https://www.rfc-editor.org/rfc/rfc3986#section-3.4
@@ -570,9 +654,11 @@ final class Query implements ArrayAccess, Iterator
      * @return mixed[]
      * @throws Exception
      */
-    private function fixKeysContainingDotsOrSpaces(): array
+    private function fixKeysContainingDotsOrSpaces(string $query): array
     {
-        $queryWithDotAndSpaceReplacements = $this->replaceDotsAndSpacesInKeys($this->toStringWithUnencodedBrackets());
+        $queryWithDotAndSpaceReplacements = $this->replaceDotsAndSpacesInKeys(
+            $this->toStringWithUnencodedBrackets($query)
+        );
 
         parse_str($queryWithDotAndSpaceReplacements, $array);
 
@@ -580,12 +666,65 @@ final class Query implements ArrayAccess, Iterator
     }
 
     /**
+     * @param array<mixed>|Query $query
+     * @return array<mixed>|Query
      * @throws Exception
      */
-    private function containsDotOrSpaceInKey(): bool
+    private function replaceDotsAndSpacesInArrayKeys(array|Query $query): array|Query
     {
-        return preg_match('/(?:^|&)([^\[=&]*\.)/', $this->toStringWithUnencodedBrackets()) ||
-            preg_match('/(?:^|&)([^\[=&]* )/', $this->toStringWithUnencodedBrackets());
+        $newQuery = [];
+
+        if ($query instanceof Query) {
+            $newQuery = new Query($query->toArray());
+        }
+
+        foreach ($query as $key => $value) {
+            if (is_array($value) || $value instanceof Query) {
+                $value = $this->replaceDotsAndSpacesInArrayKeys($value);
+            }
+
+            $key = str_replace(
+                ['.', ' '],
+                [self::TEMP_DOT_REPLACEMENT, self::TEMP_SPACE_REPLACEMENT],
+                $key,
+            );
+
+            if (is_array($newQuery)) {
+                $newQuery[$key] = $value;
+            } else {
+                $newQuery->set($key, $value);
+            }
+        }
+
+        return $newQuery;
+    }
+
+    /**
+     * @throws Exception
+     */
+    private function containsDotOrSpaceInKey(string $query): bool
+    {
+        return preg_match('/(?:^|&)([^\[=&]*\.)/', $this->toStringWithUnencodedBrackets($query)) ||
+            preg_match('/(?:^|&)([^\[=&]* )/', $this->toStringWithUnencodedBrackets($query));
+    }
+
+    /**
+     * @param array<mixed>|Query $query
+     * @return bool
+     */
+    private function arrayContainsDotOrSpacesInKey(array|Query $query): bool
+    {
+        foreach ($query as $key => $value) {
+            if (is_array($value) && $this->arrayContainsDotOrSpacesInKey($value)) {
+                return true;
+            }
+
+            if (str_contains($key, ' ') || str_contains($key, '.')) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private function replaceDotsAndSpacesInKeys(string $queryString): string
@@ -615,13 +754,21 @@ final class Query implements ArrayAccess, Iterator
             if (str_contains($key, self::TEMP_DOT_REPLACEMENT) || str_contains($key, self::TEMP_SPACE_REPLACEMENT)) {
                 $fixedKey = str_replace([self::TEMP_DOT_REPLACEMENT, self::TEMP_SPACE_REPLACEMENT], ['.', ' '], $key);
 
-                $newQueryStringArray[$fixedKey] = $value;
+                $newQueryStringArray[trim($fixedKey)] = $value;
             } else {
                 $newQueryStringArray[$key] = $value;
             }
         }
 
         return $newQueryStringArray;
+    }
+
+    private function revertDotAndSpaceReplacementsInString(string $query): string
+    {
+        return str_replace([
+            urlencode(self::TEMP_DOT_REPLACEMENT),
+            urlencode(self::TEMP_SPACE_REPLACEMENT),
+        ], ['.', $this->spaceCharacter()], $query);
     }
 
     /**
@@ -641,26 +788,59 @@ final class Query implements ArrayAccess, Iterator
     private function array(): array
     {
         if ($this->array === null) {
-            if ($this->separator !== '&') {
-                throw new Exception(
-                    'Converting a query string to array with custom separator isn\'t implemented, because PHP\'s ' .
-                    'parse_str() function doesn\'t have that functionality. If you\'d need this reach out to crwlr ' .
-                    'on github or twitter.'
-                );
+            if (empty($this->string)) {
+                return [];
+            } else {
+                if ($this->separator !== '&') {
+                    throw new Exception(
+                        'Converting a query string to array with custom separator isn\'t implemented, because PHP\'s ' .
+                        'parse_str() function doesn\'t have that functionality. If you\'d need this, reach out to crwlr ' .
+                        'on github or twitter.'
+                    );
+                }
+
+                $this->array = $this->stringToArray($this->string);
             }
-
-            if ($this->containsDotOrSpaceInKey()) {
-                return $this->fixKeysContainingDotsOrSpaces();
-            }
-
-            parse_str($this->string ?? '', $array);
-
-            $this->array = $array;
-
-            return $array;
         }
 
         return $this->array;
+    }
+
+    /**
+     * @return mixed[]
+     * @throws Exception
+     */
+    private function stringToArray(string $query): array
+    {
+        $query = str_replace($this->spaceCharacter(), ' ', $query);
+
+        if ($this->containsDotOrSpaceInKey($query)) {
+            return $this->fixKeysContainingDotsOrSpaces($query);
+        }
+
+        parse_str($query, $array);
+
+        return $array;
+    }
+
+    /**
+     * @param mixed[] $query
+     * @return string
+     * @throws Exception
+     */
+    private function arrayToString(array $query): string
+    {
+        if (!$this->boolToInt) {
+            $query = $this->boolsToString($query);
+        }
+
+        if ($this->arrayContainsDotOrSpacesInKey($query)) {
+            $query = $this->replaceDotsAndSpacesInArrayKeys($query);
+        }
+
+        $string = http_build_query($query, '', $this->separator, $this->spaceCharacterEncoding);
+
+        return $this->revertDotAndSpaceReplacementsInString($string);
     }
 
     /**
@@ -709,6 +889,7 @@ final class Query implements ArrayAccess, Iterator
     /**
      * @param string|mixed[] $query
      * @return $this
+     * @throws Exception
      */
     private function newWithSameSettings(string|array $query): self
     {
