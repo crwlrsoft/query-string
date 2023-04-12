@@ -186,3 +186,15 @@ test('Duplicate query string keys are converted to arrays', function () {
             'test2' => 2,
         ]);
 });
+
+it('correctly parses array syntax when brackets are encoded', function () {
+    expect(
+        Query::fromString(
+            'filter%5Bdestination%5D%5B%5D=101&filter%5Bdestination%5D%5B%5D=103&filter%5Bdestination%5D%5B%5D=106'
+        )->toArray()
+    )->toBe([
+        'filter' => [
+            'destination' => ['101', '103', '106']
+        ]
+    ]);
+});

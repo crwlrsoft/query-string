@@ -1019,6 +1019,8 @@ final class Query implements ArrayAccess, Iterator
         $keyOccurrences = array_count_values(array_map(fn ($val) => explode('=', $val, 2)[0], explode('&', $query)));
 
         foreach ($keyOccurrences as $key => $count) {
+            $key = $this->toStringWithUnencodedBrackets($key);
+
             if ($count > 1 && !str_contains($key, '[')) {
                 // Duplicate query string key without array notation, convert to {keyName}[] structure
                 $query = preg_replace(

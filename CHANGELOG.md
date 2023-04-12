@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.3] - 2023-04-12
+### Fixed
+- Fixes an issue introduced in v1.0.2. When creating an instance from string, it's containing an array and the brackets are encoded (like `filter%5Bfoo%5D%5B%5D=1&filter%5Bfoo%5D%5B%5D=2`), the method trying to fix duplicate keys without brackets added another array level (like `filter[foo][]` to `filter[foo][][]`). This is fixed with this release.
+
 ## [1.0.2] - 2023-04-12
 ### Fixed
 - Duplicate keys without array notation (like `foo=bar&foo=baz`) are now also interpreted as array (like `foo[]=bar&foo[]=baz`). This is considered a bugfix because:
