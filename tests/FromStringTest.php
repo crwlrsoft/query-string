@@ -178,3 +178,11 @@ it(
         'foo.bar[0]=v1&foo.bar_extra[0]=v2&foo.bar.extra[0]=v3',
     ],
 ]);
+
+test('Duplicate query string keys are converted to arrays', function () {
+    expect(Query::fromString('test=1&test2=2&test=2&test[]=3&test[test]=4')->toArray())
+        ->toEqual([
+            'test' => [1, 2, 3, 'test' => 4],
+            'test2' => 2,
+        ]);
+});

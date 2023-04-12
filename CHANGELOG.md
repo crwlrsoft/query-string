@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.2] - 2023-04-12
+### Fixed
+- Duplicate keys without array notation (like `foo=bar&foo=baz`) are now also interpreted as array (like `foo[]=bar&foo[]=baz`). This is considered a bugfix because:
+  - Previously `foo=bar&foo=baz` became `foo=baz`, which is most likely unwanted behavior.
+  - Of course, such query strings should preferably be written using the array notation (`[]`), but if such a query is written without the brackets, the intention is either that it should be an array, or it's a mistake. If it is a mistake, the probability to notice it is higher, when the result contains all values instead of only the last one.
+  - As this library is also part of the crwlr crawling library and there are servers intentionally using the syntax without brackets (e.g. google https://fonts.googleapis.com/css2?family=Baloo&family=Roboto) it's better to interpret it as an array.
+
 ## [1.0.1] - 2023-01-30
 ### Fixed
 - When creating a `Query` from string, and it contains empty key value parts, like `&foo=bar`, `foo=bar&` or `foo=bar&&baz=quz`, the unnecessary `&` characters are removed in the string version now. For example, `&foo=bar` previously lead to `$instance->toString()` returning `&foo=bar` and now it returns `foo=bar`.
