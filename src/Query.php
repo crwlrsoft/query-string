@@ -555,6 +555,8 @@ final class Query implements ArrayAccess, Iterator
         }
 
         $query = preg_replace('/&+/', '&', $query) ?? $query;
+        
+        $query = $this->normalizeArrays($query);
 
         return $this->arrayToString($this->stringToArray($query));
     }
@@ -999,5 +1001,32 @@ final class Query implements ArrayAccess, Iterator
         }
 
         return '%20';
+    }
+
+    /**
+     * Arrays can be present in query strings in two formats, as follows:
+     *  1.) ?key[]=value1&key[]=value2
+     *  2.) ?key=value1&key=value2
+     *
+     * Both *should* be parsed in the same way, however, PHP's parse_str() doesn't handle version #1. This function
+     * normalizes version #2 structure query strings to #1 so that we can parse both accordingly.
+     */
+    private function normalizeArrays(string $query): string
+    {
+        // Count the occurrences of all request keys to check for duplicates
+        $keyOccurrences = array_count_values(array_map(fn ($val) => explode('=', $val, 2)[0], explode('&', $query)));
+
+        foreach ($keyOccurrences as $key => $count) {
+            if ($count > 1 && !strstr($key, '[')) {
+                // Duplicate query string key without array notation, convert to {keyName}[] structure
+                $query = preg_replace(
+                    '#(^|[?&])(' . preg_quote($key) . ')=#',
+                    '$1$2[]=',
+                    $query,
+                );
+            }
+        }
+
+        return $query;
     }
 }
