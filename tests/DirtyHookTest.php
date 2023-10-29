@@ -7,7 +7,7 @@ it('calls the dirty hook when set() was called', function () {
 
     $hookWasCalled = false;
 
-    $query->setDirtyHook(function () use (& $hookWasCalled) {
+    $query->setDirtyHook(function () use (&$hookWasCalled) {
         $hookWasCalled = true;
     });
 
@@ -23,7 +23,7 @@ it('calls the dirty hook when appendTo() was called', function () {
 
     $hookWasCalled = false;
 
-    $query->setDirtyHook(function () use (& $hookWasCalled) {
+    $query->setDirtyHook(function () use (&$hookWasCalled) {
         $hookWasCalled = true;
     });
 
@@ -39,7 +39,7 @@ it('calls the dirty hook when remove() was called', function () {
 
     $hookWasCalled = false;
 
-    $query->setDirtyHook(function () use (& $hookWasCalled) {
+    $query->setDirtyHook(function () use (&$hookWasCalled) {
         $hookWasCalled = true;
     });
 
@@ -55,7 +55,7 @@ it('calls the dirty hook when removeValueFrom() was called', function () {
 
     $hookWasCalled = false;
 
-    $query->setDirtyHook(function () use (& $hookWasCalled) {
+    $query->setDirtyHook(function () use (&$hookWasCalled) {
         $hookWasCalled = true;
     });
 
@@ -71,7 +71,7 @@ it('calls the dirty hook when filter() was called', function () {
 
     $hookWasCalled = false;
 
-    $query->setDirtyHook(function () use (& $hookWasCalled) {
+    $query->setDirtyHook(function () use (&$hookWasCalled) {
         $hookWasCalled = true;
     });
 
@@ -89,7 +89,7 @@ it('calls the dirty hook when map() was called', function () {
 
     $hookWasCalled = false;
 
-    $query->setDirtyHook(function () use (& $hookWasCalled) {
+    $query->setDirtyHook(function () use (&$hookWasCalled) {
         $hookWasCalled = true;
     });
 
@@ -107,7 +107,7 @@ it('calls the dirty hook when boolToString() was called', function () {
 
     $hookWasCalled = false;
 
-    $query->setDirtyHook(function () use (& $hookWasCalled) {
+    $query->setDirtyHook(function () use (&$hookWasCalled) {
         $hookWasCalled = true;
     });
 
@@ -123,7 +123,7 @@ it('calls the dirty hook when boolToInt() was called', function () {
 
     $hookWasCalled = false;
 
-    $query->setDirtyHook(function () use (& $hookWasCalled) {
+    $query->setDirtyHook(function () use (&$hookWasCalled) {
         $hookWasCalled = true;
     });
 
@@ -141,7 +141,7 @@ it('calls the dirty hook when spaceCharacterPercentTwenty() was called', functio
 
     $hookWasCalled = false;
 
-    $query->setDirtyHook(function () use (& $hookWasCalled) {
+    $query->setDirtyHook(function () use (&$hookWasCalled) {
         $hookWasCalled = true;
     });
 
@@ -157,7 +157,7 @@ it('calls the dirty hook when spaceCharacterPlus() was called', function () {
 
     $hookWasCalled = false;
 
-    $query->setDirtyHook(function () use (& $hookWasCalled) {
+    $query->setDirtyHook(function () use (&$hookWasCalled) {
         $hookWasCalled = true;
     });
 
@@ -175,7 +175,7 @@ it('calls the dirty hook when separator() was called', function () {
 
     $hookWasCalled = false;
 
-    $query->setDirtyHook(function () use (& $hookWasCalled) {
+    $query->setDirtyHook(function () use (&$hookWasCalled) {
         $hookWasCalled = true;
     });
 
@@ -191,7 +191,7 @@ it('calls the dirty hook when something in a child Query instance was changed', 
 
     $hookWasCalled = false;
 
-    $query->setDirtyHook(function () use (& $hookWasCalled) {
+    $query->setDirtyHook(function () use (&$hookWasCalled) {
         $hookWasCalled = true;
     });
 
