@@ -890,7 +890,7 @@ final class Query implements ArrayAccess, Iterator
 
     /**
      * @param string|mixed[] $query
-     * @return $this
+     * @return self
      * @throws Exception
      */
     private function newWithSameSettings(string|array $query): self
