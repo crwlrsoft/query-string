@@ -30,6 +30,12 @@
         "source": "https://github.com/crwlrsoft/query-string",
         "docs": "https://www.crwlr.software/packages/query-string"
     },
+    "funding": [
+        {
+            "type": "github",
+            "url": "https://github.com/sponsors/otsch"
+        }
+    ],
     "require": {
         "php" : "^8.0"
     },
