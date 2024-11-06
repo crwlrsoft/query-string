@@ -34,7 +34,7 @@
         "php" : "^8.0"
     },
     "require-dev": {
-        "pestphp/pest": "^1.21",
+        "pestphp/pest": "^1.21|^2.0|^3.0",
         "friendsofphp/php-cs-fixer": "^3.8",
         "phpstan/phpstan": "^1.7"
     },
