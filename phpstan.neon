@@ -4,6 +4,6 @@ parameters:
         - src
         - tests
     treatPhpDocTypesAsCertain: false
-
+    reportUnmatchedIgnoredErrors: false
     ignoreErrors:
-        - "/Call to an undefined method Pest\\\\Expectation\\\\|Pest\\\\Support\\\\Extendable.*/"
+        - "#^Call to an undefined method Pest\\\\PendingCalls\\\\TestCall\\|Pest\\\\Support\\\\HigherOrderTapProxy\\:\\:(with|throws)\\(\\).$#"
