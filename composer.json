@@ -40,9 +40,9 @@
         "php" : "^8.0"
     },
     "require-dev": {
-        "pestphp/pest": "^1.21|^2.0|^3.0",
+        "pestphp/pest": "^1.21|^2.0|^3.0|^4.0",
         "friendsofphp/php-cs-fixer": "^3.8",
-        "phpstan/phpstan": "^1.7"
+        "phpstan/phpstan": "^1.7|^2.0"
     },
     "scripts": {
         "test": "@php vendor/bin/pest",
